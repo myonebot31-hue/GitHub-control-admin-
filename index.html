@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote GitHub Admin Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <style>
         :root {
             --bg-color: #0f172a;
@@ -16,90 +17,101 @@
             --danger: #ef4444;
             --success: #22c55e;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
 
-        /* Lock Screen Overlay */
         #auth-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-color); display: flex; justify-content: center; align-items: center; z-index: 1000;
         }
-        .auth-box {
+       .auth-box {
             background: var(--panel-bg); padding: 2rem; border-radius: 12px; border: 1px solid var(--border-color);
             width: 100%; max-width: 400px; text-align: center;
         }
-        .auth-box h2 { margin-bottom: 1rem; }
-        .auth-box input {
+       .auth-box h2 { margin-bottom: 1rem; }
+       .auth-box input {
             width: 100%; padding: 0.75rem; background: var(--bg-color); border: 1px solid var(--border-color);
             color: var(--text-main); border-radius: 6px; margin-bottom: 1rem; font-size: 1rem;
         }
-
-        /* Main Dashboard Layout */
+       .auth-options { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted); }
         #dashboard { display: none; flex: 1; flex-direction: column; height: 100vh; }
         header {
             background: var(--panel-bg); padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color);
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
         }
-        .controls { display: flex; gap: 1rem; align-items: center; }
+       .controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
         select, button {
             background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color);
             padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
         }
         button.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
         button.primary:hover { background: var(--accent-hover); }
+        button.danger-outline { border-color: var(--danger); color: var(--danger); }
 
-        .main-layout { display: flex; flex: 1; overflow: hidden; }
-        
-        /* Sidebar (File Explorer) */
+       .main-layout { display: flex; flex: 1; overflow: hidden; }
         sidebar {
             width: 320px; background: var(--panel-bg); border-right: 1px solid var(--border-color);
             display: flex; flex-direction: column; overflow-y: auto; padding: 1rem;
         }
-        .section-title { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; letter-spacing: 0.05em; }
-        .file-list { list-style: none; margin-bottom: 1.5rem; }
-        .file-item {
+       .section-title { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; letter-spacing: 0.05em; }
+       .file-list { list-style: none; margin-bottom: 1.5rem; }
+       .file-item {
             padding: 0.5rem 0.75rem; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;
             font-size: 0.9rem; color: var(--text-muted);
         }
-        .file-item:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
-        .file-item.active { background: rgba(59, 130, 246, 0.15); color: var(--accent); font-weight: 500; }
+       .file-item:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
+       .file-item.active { background: rgba(59, 130, 246, 0.15); color: var(--accent); font-weight: 500; }
 
-        /* Code Editor Panel */
-        .editor-container { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); padding: 1rem; gap: 1rem; overflow: hidden; }
-        .editor-header { display: flex; justify-content: space-between; align-items: center; }
-        .editor-header span { font-size: 0.95rem; font-weight: 500; color: var(--text-muted); }
-        
-        textarea#code-editor {
-            flex: 1; width: 100%; background: #090d16; color: #38bdf8; border: 1px solid var(--border-color);
-            border-radius: 8px; padding: 1rem; font-family: 'Courier New', Courier, monospace; font-size: 0.95rem;
-            line-height: 1.5; resize: none; outline: none;
+       .editor-container { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); padding: 1rem; gap: 1rem; overflow: hidden; }
+       .editor-header { display: flex; justify-content: space-between; align-items: center; }
+       .editor-header span { font-size: 0.95rem; font-weight: 500; color: var(--text-muted); }
+
+        /* Code Editor Wrapper with Prism Highlighting */
+       .code-wrapper {
+            flex: 1; position: relative; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;
+            background: #2d2d2d;
+            display: flex; flex-direction: column;
         }
-        
-        .commit-bar { display: flex; gap: 1rem; align-items: center; }
-        .commit-bar input {
+        #code-editor {
+            flex: 1; width: 100%; background: #2d2d2d; color: #f8fafc; border: none;
+            padding: 1rem; font-family: 'Fira Code', 'Courier New', monospace; font-size: 0.9rem;
+            line-height: 1.5; resize: none; outline: none; display: none;
+        }
+        pre#code-preview {
+            flex: 1; margin: 0; padding: 1rem; overflow: auto; font-size: 0.9rem; line-height: 1.5;
+            background: #2d2d2d!important; max-height: 100%;
+        }
+        pre#code-preview code { font-family: 'Fira Code', 'Courier New', monospace!important; }
+        textarea#code-editor.editing { display: block; }
+        pre#code-preview.viewing { display: block; }
+        pre#code-preview.editing { display: none; }
+       .view-toggle { display: flex; gap: 0.5rem; }
+
+       .commit-bar { display: flex; gap: 1rem; align-items: center; }
+       .commit-bar input {
             flex: 1; padding: 0.6rem 1rem; background: var(--panel-bg); border: 1px solid var(--border-color);
             color: var(--text-main); border-radius: 6px; outline: none;
         }
-
         #status-msg { font-size: 0.85rem; margin-left: 1rem; }
     </style>
 </head>
 <body>
-
-    <!-- AUTHENTICATION LOCK SCREEN -->
     <div id="auth-screen">
         <div class="auth-box">
             <h2>Admin Login</h2>
             <input type="password" id="secret-input" placeholder="Enter Admin Secret Key..." />
+            <div class="auth-options">
+                <input type="checkbox" id="remember-key" checked />
+                <label for="remember-key">Remember key on this device</label>
+            </div>
             <button class="primary" style="width: 100%;" onclick="unlockDashboard()">Unlock Dashboard</button>
+            <p id="auto-login-msg" style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem; display:none;">Trying saved key...</p>
         </div>
     </div>
 
-    <!-- MAIN DASHBOARD -->
     <div id="dashboard">
         <header>
-            <h2> Remote Editor</h2>
+            <h2>Remote Editor</h2>
             <div class="controls">
                 <label style="font-size: 0.85rem; color: var(--text-muted);">Account:</label>
                 <select id="account-select" onchange="loadRepositories()">
@@ -110,11 +122,11 @@
                 <select id="repo-select" onchange="loadRepoFiles()" style="min-width: 200px;">
                     <option value="">Select a repository...</option>
                 </select>
+                <button class="danger-outline" onclick="logout()">Logout</button>
             </div>
         </header>
 
         <div class="main-layout">
-            <!-- File Tree Sidebar -->
             <sidebar>
                 <div class="section-title">Files & Pages</div>
                 <ul id="file-tree" class="file-list">
@@ -122,13 +134,23 @@
                 </ul>
             </sidebar>
 
-            <!-- Code Editor Workspace -->
             <div class="editor-container">
                 <div class="editor-header">
                     <span id="current-file-path">No file selected</span>
-                    <span id="status-msg"></span>
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <div class="view-toggle">
+                            <button id="btn-view" class="primary" style="padding:0.3rem 0.7rem;" onclick="setMode('view')">View (Color)</button>
+                            <button id="btn-edit" style="padding:0.3rem 0.7rem;" onclick="setMode('edit')">Edit</button>
+                        </div>
+                        <span id="status-msg"></span>
+                    </div>
                 </div>
-                <textarea id="code-editor" placeholder="Select a file from the left sidebar to view or edit code..."></textarea>
+
+                <div class="code-wrapper">
+                    <pre id="code-preview" class="viewing line-numbers"><code id="code-preview-content" class="language-javascript">Select a file from the left sidebar to view code with syntax colors like GitHub...</code></pre>
+                    <textarea id="code-editor" placeholder="Select a file from the left sidebar to view or edit code..." oninput="syncPreview()"></textarea>
+                </div>
+
                 <div class="commit-bar">
                     <input type="text" id="commit-msg" placeholder="Commit message (e.g. Update index.html styling)" />
                     <button class="primary" onclick="commitChanges()">Commit Changes</button>
@@ -137,39 +159,110 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script>
-        // CHANGE THIS to your actual deployed Render backend service URL
         const BACKEND_URL = 'https://github-control-backend.onrender.com';
-        
+        const STORAGE_KEY = 'github_admin_key';
+
         let adminKey = '';
         let currentOwner = '';
         let currentRepo = '';
         let currentPath = '';
         let currentBranch = 'main';
+        let currentLanguage = 'javascript';
+        let editMode = 'view';
 
-        function unlockDashboard() {
+        // Configure Prism autoloader to load languages from CDN automatically【8366531253662750694†L30-L40】
+        Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/';
+
+        function getLanguageFromPath(path) {
+            const ext = path.split('.').pop().toLowerCase();
+            const map = {
+                'rb': 'ruby', 'js': 'javascript', 'ts': 'typescript', 'py': 'python',
+                'json': 'json', 'html': 'markup', 'css': 'css', 'php': 'php',
+                'java': 'java', 'go': 'go', 'yml': 'yaml', 'yaml': 'yaml',
+                'md': 'markdown', 'sh': 'bash', 'sql': 'sql', 'jsx': 'jsx', 'tsx': 'tsx'
+            };
+            return map[ext] || 'javascript';
+        }
+
+        function setMode(mode) {
+            editMode = mode;
+            const preview = document.getElementById('code-preview');
+            const editor = document.getElementById('code-editor');
+            const btnView = document.getElementById('btn-view');
+            const btnEdit = document.getElementById('btn-edit');
+
+            if (mode === 'edit') {
+                preview.classList.remove('viewing'); preview.classList.add('editing');
+                editor.classList.add('editing');
+                btnEdit.classList.add('primary'); btnView.classList.remove('primary');
+                editor.focus();
+            } else {
+                preview.classList.add('viewing'); preview.classList.remove('editing');
+                editor.classList.remove('editing');
+                btnView.classList.add('primary'); btnEdit.classList.remove('primary');
+                syncPreview();
+            }
+        }
+
+        function syncPreview() {
+            const code = document.getElementById('code-editor').value;
+            const contentEl = document.getElementById('code-preview-content');
+            contentEl.textContent = code;
+            contentEl.className = `language-${currentLanguage}`;
+            Prism.highlightElement(contentEl);
+        }
+
+        // Auto-login from localStorage
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem(STORAGE_KEY);
+            if (savedKey) {
+                document.getElementById('secret-input').value = savedKey;
+                document.getElementById('auto-login-msg').style.display = 'block';
+                unlockDashboard(true);
+            }
+        });
+
+        function unlockDashboard(isAuto = false) {
             const inputVal = document.getElementById('secret-input').value.trim();
             if (!inputVal) return alert('Please enter your admin secret key.');
-            
+
             adminKey = inputVal;
-            // Quick test verification against backend
             loadRepositories().then(success => {
                 if (success) {
+                    if (document.getElementById('remember-key').checked) {
+                        localStorage.setItem(STORAGE_KEY, adminKey);
+                    }
                     document.getElementById('auth-screen').style.display = 'none';
                     document.getElementById('dashboard').style.display = 'flex';
                 } else {
-                    alert('Invalid Admin Secret Key.');
+                    if (!isAuto) alert('Invalid Admin Secret Key.');
+                    else {
+                        document.getElementById('auto-login-msg').textContent = 'Saved key invalid, please login again.';
+                        localStorage.removeItem(STORAGE_KEY);
+                    }
                 }
             });
+        }
+
+        function logout() {
+            localStorage.removeItem(STORAGE_KEY);
+            adminKey = '';
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('auth-screen').style.display = 'flex';
+            document.getElementById('secret-input').value = '';
+            document.getElementById('auto-login-msg').style.display = 'none';
         }
 
         async function apiCall(endpoint, options = {}) {
             headers = {
                 'Content-Type': 'application/json',
                 'x-admin-key': adminKey,
-                ...(options.headers || {})
+               ...(options.headers || {})
             };
-            const response = await fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
+            const response = await fetch(`${BACKEND_URL}${endpoint}`, {...options, headers });
             return response;
         }
 
@@ -178,53 +271,36 @@
             try {
                 const res = await apiCall(`/api/repos?account=${account}`);
                 const data = await res.json();
-                
                 if (!data.success) return false;
-
                 const repoSelect = document.getElementById('repo-select');
                 repoSelect.innerHTML = '<option value="">Select a repository...</option>';
-                
                 data.repos.forEach(repo => {
                     const opt = document.createElement('option');
-                    opt.value = repo.fullName; // format: owner/repo
+                    opt.value = repo.fullName;
                     opt.textContent = repo.fullName;
                     repoSelect.appendChild(opt);
                 });
                 return true;
-            } catch (err) {
-                console.error(err);
-                return false;
-            }
+            } catch (err) { console.error(err); return false; }
         }
 
         async function loadRepoFiles(path = '') {
             const repoFullName = document.getElementById('repo-select').value;
             if (!repoFullName) return;
-
             const [owner, repo] = repoFullName.split('/');
-            currentOwner = owner;
-            currentRepo = repo;
-            currentPath = path;
+            currentOwner = owner; currentRepo = repo; currentPath = path;
             const account = document.getElementById('account-select').value;
-
             try {
                 const res = await apiCall(`/api/files?account=${account}&owner=${owner}&repo=${repo}&path=${path}`);
                 const data = await res.json();
-
-                if (data.success && Array.isArray(data.data)) {
-                    renderFileTree(data.data);
-                }
-            } catch (err) {
-                console.error('Error loading files:', err);
-            }
+                if (data.success && Array.isArray(data.data)) renderFileTree(data.data);
+            } catch (err) { console.error('Error loading files:', err); }
         }
 
         function renderFileTree(files) {
             const fileTree = document.getElementById('file-tree');
             fileTree.innerHTML = '';
-
-            // Option to go back up a directory if inside a folder
-            if (currentPath !== '') {
+            if (currentPath!== '') {
                 const parentPath = currentPath.split('/').slice(0, -1).join('/');
                 const backItem = document.createElement('li');
                 backItem.className = 'file-item';
@@ -232,11 +308,9 @@
                 backItem.onclick = () => loadRepoFiles(parentPath);
                 fileTree.appendChild(backItem);
             }
-
             files.forEach(file => {
                 const li = document.createElement('li');
                 li.className = 'file-item';
-                
                 if (file.type === 'dir') {
                     li.innerHTML = `📁 ${file.name}`;
                     li.onclick = () => loadRepoFiles(file.path);
@@ -253,15 +327,14 @@
             try {
                 const res = await apiCall(`/api/files?account=${account}&owner=${currentOwner}&repo=${currentRepo}&path=${path}`);
                 const data = await res.json();
-
                 if (data.success && data.data.content) {
                     currentPath = path;
+                    currentLanguage = getLanguageFromPath(path);
                     document.getElementById('current-file-path').textContent = `${currentOwner}/${currentRepo} / ${path}`;
-                    
-                    // Decode base64 content received from GitHub API
                     const decodedContent = decodeURIComponent(escape(atob(data.data.content)));
                     document.getElementById('code-editor').value = decodedContent;
-                    document.getElementById('status-msg').textContent = 'File loaded successfully.';
+                    setMode('view');
+                    document.getElementById('status-msg').textContent = `Loaded (${currentLanguage})`;
                     document.getElementById('status-msg').style.color = 'var(--success)';
                 }
             } catch (err) {
@@ -272,28 +345,16 @@
 
         async function commitChanges() {
             if (!currentPath) return alert('No file currently open for editing.');
-            
             const content = document.getElementById('code-editor').value;
             const message = document.getElementById('commit-msg').value || `Admin update to ${currentPath}`;
             const account = document.getElementById('account-select').value;
-
             document.getElementById('status-msg').textContent = 'Committing to GitHub...';
             document.getElementById('status-msg').style.color = 'var(--text-muted)';
-
             try {
                 const res = await apiCall('/api/commit-code', {
                     method: 'POST',
-                    body: JSON.stringify({
-                        account,
-                        owner: currentOwner,
-                        repo: currentRepo,
-                        path: currentPath,
-                        content,
-                        message,
-                        branch: currentBranch
-                    })
+                    body: JSON.stringify({ account, owner: currentOwner, repo: currentRepo, path: currentPath, content, message, branch: currentBranch })
                 });
-
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('status-msg').textContent = 'Successfully committed!';
@@ -309,6 +370,9 @@
                 alert('Network error while committing.');
             }
         }
+
+        // Enter to login
+        document.getElementById('secret-input').addEventListener('keypress', e => { if (e.key === 'Enter') unlockDashboard(); });
     </script>
 </body>
 </html>
